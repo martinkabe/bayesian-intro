@@ -132,7 +132,9 @@ beta_prior <- 5
 # Load necessary libraries
 #install.packages('cmdstanr')
 #install.packages('posterior)
-library(cmdstanr)
+library(cmdstanr) # is cmdstanr does not work (especially on linux),
+# then use below command to install cmdstanr
+# install_cmdstan()
 library(posterior)
 
 # Define Stan model
@@ -165,7 +167,7 @@ generated quantities {
 # Write model to a file
 writeLines(stan_code, con = "model.stan")
 # Compile model
-model <- cmdstan_model("model.stan")
+model <- cmdstan_model("./model.stan")
 ```
 
 ```{r}
