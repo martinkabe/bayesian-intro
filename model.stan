@@ -1,19 +1,19 @@
 
 data {
-  int<lower=0> N; // number of trials
-  int<lower=0> y; // number of successes
-  real<lower=0> alpha; // prior hyperparameter
-  real<lower=0> beta; // prior hyperparameter
+  int<lower=0> N;               // number of observations
+  array[N] int<lower=0> y;      // observed counts
+  real<lower=0.1> alpha;        // prior hyperparameter
+  real<lower=0.1> beta;         // prior hyperparameter
 }
 parameters {
-  real<lower=0, upper=1> theta; // probability of success
+  real<lower=0> lambda; // Poisson rate parameter
 }
 model {
-  theta ~ beta(alpha, beta); // prior
-  y ~ binomial(N, theta); // likelihood
+  lambda ~ gamma(alpha, beta); // prior
+  y ~ poisson(lambda); // likelihood
 }
 generated quantities {
   int y_pred;
-  y_pred = binomial_rng(N, theta); // posterior predictive distribution
+  y_pred = poisson_rng(lambda); // posterior predictive distribution
 }
 
