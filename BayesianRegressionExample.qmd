@@ -1,0 +1,116 @@
+---
+title: "BayesianRegressionExample"
+format: html
+editor: visual
+---
+
+# Linear Regression
+
+Let's imagine we're data scientists at a tech company, and we're interested in understanding the relationship between the time spent on our website and the total amount spent by a user on our platform.
+
+We hypothesize that there is a linear relationship between these two quantities. We have collected data from 100 users, and for each user, we have recorded the time spent on our website (in hours) and the total amount they spent (in dollars).
+
+We are creating the data, so we know that the true intercept is 10, the true slope is 20, and the true sigma is 5. This means that the average spending of someone who spends zero time on the website is approximately \$10, they spend an additional \$20 for each hour on the website, and the average person differs from this expected average of \$10 + \$20\*hours by about \$5.
+
+```{r}
+# Simulate some data
+set.seed(123) # for reproducibility
+N <- 100
+alpha_true <- 10 # true intercept (base amount spent)
+beta_true <- 20 # true slope (amount spent per hour on website)
+sigma_true <- 5 # true standard deviation
+x <- runif(N, min = 1, max = 5) # time spent on website
+y <- rnorm(N, alpha_true + beta_true * x, sigma_true) # total amount spent
+
+plot(x,y, xlab = "Time spent on website", ylab = "Spending in Dollars $")
+```
+
+-   Here, we define the Stan model for simple linear regression and compile the model.
+
+```{r}
+# Define Stan model
+stan_code <- '
+data {
+  int<lower=0> N; // number of observations
+  vector[N] x; // predictor (time spent on website)
+  vector[N] y; // response (total amount spent)
+}
+parameters {
+  real alpha; // intercept
+  real beta; // slope
+  real<lower=0> sigma; // standard deviation
+}
+model {
+  y ~ normal(alpha + beta * x, sigma); // likelihood
+}
+'
+```
+
+-   Notice we didn't include prior distributions for alpha, beta, OR sigma! Stan is smart and if we don't specify priors, will default to something called an uninformative prior. We could also specify the priors ourselves:
+
+```{r}
+
+# Define Stan model
+stan_code <- '
+data {
+  int<lower=0> N; // number of observations
+  vector[N] x; // predictor (time spent on website)
+  vector[N] y; // response (total amount spent)
+}
+parameters {
+  real alpha; // intercept
+  real beta; // slope
+  real<lower=0> sigma; // standard deviation
+}
+model {
+  alpha ~ normal(0, 10); // prior on the intercept
+  beta ~ normal(0, 10); // prior on the slope
+  sigma ~ inv_gamma(2, 1); // prior on the standard deviation
+  y ~ normal(alpha + beta * x, sigma); // likelihood
+}
+'
+```
+
+-   We compile the model.
+
+```{r}
+# Load necessary libraries
+library(cmdstanr)
+library(posterior)
+
+# Write model to a file
+writeLines(stan_code, con = "model.stan")
+
+# Compile model
+model <- cmdstan_model("model.stan")
+```
+
+-   We fit the model.
+
+```{r}
+# Run Stan model
+stan_data <- list(
+  N = N,
+  x = x,
+  y = y
+)
+fit <- model$sample(data = stan_data, iter_sampling = 1000, chains = 4)
+```
+
+-   We extract the posterior samples and make 95% credible intervals for the 3 parameters alpha, beta, and sigma.
+
+```{r}
+# Extract posterior samples
+posterior_samples <- fit$draws()
+
+# Convert to data frame
+posterior_samples_df <- as_draws_df(posterior_samples)
+
+# 95% credible intervals
+ci_alpha <- quantile2(posterior_samples_df$alpha, probs = c(0.025, 0.975))
+cat("95% credible interval for alpha: (", ci_alpha[1], ",", ci_alpha[2], ")\n")
+ci_beta <- quantile2(posterior_samples_df$beta, probs = c(0.025, 0.975))
+cat("95% credible interval for beta: (", ci_beta[1], ",", ci_beta[2], ")\n")
+ci_sigma <- quantile2(posterior_samples_df$sigma, probs = c(0.025, 0.975))
+cat("95% credible interval for sigma: (", ci_sigma[1], ",", ci_sigma[2], ")\n")
+```
